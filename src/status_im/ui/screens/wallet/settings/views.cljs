@@ -1,7 +1,6 @@
 (ns status-im.ui.screens.wallet.settings.views
   (:require-macros [status-im.utils.views :refer [defview letsubs]])
   (:require [re-frame.core :as re-frame]
-            [pluto.reader.hooks :as hooks]
             [status-im.i18n :as i18n]
             [status-im.ui.components.colors :as colors]
             [status-im.ui.components.list.views :as list]
@@ -13,18 +12,6 @@
             [status-im.utils.ethereum.core :as ethereum]
             [status-im.utils.ethereum.tokens :as tokens]
             [status-im.ui.components.toolbar.actions :as actions]))
-
-(def hook
-  "Hook for extensions"
-  {:properties
-   {:label     :string
-    :view      :view}
-   :hook
-   (reify hooks/Hook
-     (hook-in [_ id _ {:keys [label view _]} {:keys [db]}]
-       {:db (assoc-in db [:wallet :settings id] {:label label :view view})})
-     (unhook [_ id _ _ {:keys [db]}]
-       {:db (update-in db [:wallet :settings] dissoc id)}))})
 
 (defn- render-token [{:keys [symbol name icon]} visible-tokens]
   [list/list-item-with-checkbox

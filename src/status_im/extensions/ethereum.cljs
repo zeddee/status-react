@@ -1,6 +1,5 @@
 (ns status-im.extensions.ethereum
   (:require [clojure.string :as string]
-            [re-frame.core :as re-frame]
             [status-im.constants :as constants]
             [status-im.i18n :as i18n]
             [status-im.models.wallet :as models.wallet]
@@ -12,7 +11,6 @@
             [status-im.utils.ethereum.core :as ethereum]
             [status-im.utils.handlers :as handlers]
             [status-im.utils.money :as money]
-            [clojure.string :as string]
             [status-im.utils.types :as types]
             [status-im.native-module.core :as status]))
 
@@ -85,9 +83,9 @@
 
 (defn- rpc-dispatch [error result f on-success on-failure]
   (when result
-    (re-frame/dispatch (on-success {:value (f result)})))
+    (on-success {:value (f result)}))
   (when (and error on-failure)
-    (re-frame/dispatch (on-failure {:value error}))))
+    (on-failure {:value error})))
 
 (defn- rpc-handler [o f on-success on-failure]
   (let [{:keys [error result]} (types/json->clj o)]
@@ -332,9 +330,9 @@
            network-info (get-in db [:account/account :networks network])
            chain (ethereum/network->chain-keyword network-info)
            registry (get ens/ens-registries chain)]
-       (ens/get-addr web3 registry name #(re-frame/dispatch (on-success {:value %}))))
+       (ens/get-addr web3 registry name #(on-success {:value %})))
      (when on-failure
-       (re-frame/dispatch (on-failure {:value (str "'" name "' is not a valid name")}))))))
+       (on-failure {:value (str "'" name "' is not a valid name")})))))
 
 ;; EXTENSION SIGN -> SIGN MESSAGE
 (handlers/register-handler-fx
@@ -362,7 +360,7 @@
      (status/call-private-rpc payload #(let [{:keys [error result]} (types/json->clj %1)
                                              response (if error {:result result :error error}
                                                           {:result result})]
-                                         (re-frame/dispatch (on-result response)))))))
+                                         (on-result response))))))
 
 ;; poll logs implementation
 (handlers/register-handler-fx

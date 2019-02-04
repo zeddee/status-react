@@ -1,9 +1,11 @@
 (ns status-im.extensions.core
   (:refer-clojure :exclude [list])
   (:require [clojure.string :as string]
+            [pluto.core :as pluto]
             [pluto.storages :as storages]
-            [pluto.reader :as reader]
             [re-frame.core :as re-frame]
+            [re-frame.registrar :as registrar]
+            [status-im.extensions.hooks :as hooks]
             [status-im.chat.commands.core :as commands]
             [status-im.chat.commands.impl.transactions :as transactions]
             [status-im.ui.components.button.view :as button]
@@ -26,7 +28,7 @@
 
 (re-frame/reg-fx
  ::identity-event
- (fn [{:keys [cb]}] (re-frame/dispatch (cb {}))))
+ (fn [{:keys [cb]}] (cb {})))
 
 (re-frame/reg-event-fx
  :extensions/identity-event
@@ -54,8 +56,8 @@
 (re-frame/reg-fx
  ::schedule-start
  (fn [{:keys [interval on-created on-result]}]
-   (let [id (js/setInterval #(re-frame/dispatch (on-result {})) interval)]
-     (re-frame/dispatch (on-created {:value id})))))
+   (let [id (js/setInterval #(on-result {}) interval)]
+     (on-created {:value id}))))
 
 (handlers/register-handler-fx
  :extensions/schedule-start
@@ -174,7 +176,7 @@
 (re-frame/reg-fx
  ::json-parse
  (fn [{:keys [value on-result]}]
-   (re-frame/dispatch (on-result {:value (parse-json value)}))))
+   (on-result {:value (parse-json value)})))
 
 (handlers/register-handler-fx
  :extensions/json-parse
@@ -184,7 +186,7 @@
 (re-frame/reg-fx
  ::json-stringify
  (fn [value on-result]
-   (re-frame/dispatch (on-result {:value (js/JSON.stringify (clj->js value))}))))
+   (on-result {:value (js/JSON.stringify (clj->js value))})))
 
 (handlers/register-handler-fx
  :extensions/json-stringify
@@ -288,7 +290,7 @@
                                 :selection-modal-screen
                                 (assoc params :on-select #(do
                                                             (re-frame/dispatch [:navigate-back])
-                                                            (re-frame/dispatch (on-select %)))))))
+                                                            (on-select %))))))
 
 (defn operation->fn [k]
   (case k
@@ -300,7 +302,7 @@
 (re-frame/reg-fx
  ::arithmetic
  (fn [{:keys [operation values on-result]}]
-   (re-frame/dispatch (on-result {:value (apply (operation->fn operation) values)}))))
+   (on-result {:value (apply (operation->fn operation) values)})))
 
 (handlers/register-handler-fx
  :extensions/arithmetic
@@ -309,10 +311,10 @@
 
 (defn button [{:keys [on-click enabled disabled] :as m} label]
   [button/secondary-button (merge {:disabled? (or (when (contains? m :enabled) (or (nil? enabled) (false? enabled))) disabled)}
-                                  (when on-click {:on-press #(re-frame/dispatch (on-click {}))})) label])
+                                  (when on-click {:on-press #(on-click {})})) label])
 
 (defn on-input-change-text [on-change value]
-  (re-frame/dispatch (on-change {:value value})))
+  (on-change {:value value}))
 
 (defn- on-input-change-text-delay [current on-change value delay]
   ;; If an input change handler has been already scheduled cancel it.
@@ -334,7 +336,7 @@
                                 #(on-input-change-text on-change %))}))])
 
 (defn touchable-opacity [{:keys [style on-press]} & children]
-  (into [react/touchable-opacity (merge (when on-press {:on-press #(re-frame/dispatch (on-press {}))})
+  (into [react/touchable-opacity (merge (when on-press {:on-press #(on-press {})})
                                         (when style {:style style}))] children))
 
 (defn image [{:keys [source uri style]}]
@@ -354,7 +356,7 @@
   [react/view {:style {:background-color colors/white}}
    [checkbox/checkbox {:checked?        checked
                        :style           {:padding 0}
-                       :on-value-change #(re-frame/dispatch (on-change {:value %}))}]])
+                       :on-value-change #(on-change {:value %})}]])
 
 (defn activity-indicator-size [k]
   (condp = k
@@ -369,7 +371,7 @@
                                    (when-let [size' (activity-indicator-size size)] {:size size'}))])
 
 (defn picker [{:keys [style on-change selected enabled data]}]
-  [react/picker {:style style :on-change #(re-frame/dispatch (on-change {:value %})) :selected selected :enabled enabled :data data}])
+  [react/picker {:style style :on-change #(on-change {:value %}) :selected selected :enabled enabled :data data}])
 
 (defn- wrap-text-child [o]
   (if (ifn? o) o (str o)))
@@ -400,119 +402,119 @@
   [icons/icon key o])
 
 (def capacities
-  {:components {'view                   {:value view}
-                'scroll-view            {:value scroll-view :properties {:keyboard-should-persist-taps :keyword :content-container-style :map}}
-                'keyboard-avoiding-view {:value react/keyboard-avoiding-view}
-                'text                   {:value text}
-                'touchable-opacity      {:value touchable-opacity :properties {:on-press :event}}
-                'icon                   {:value icon :properties {:key :keyword :color :any}}
-                'image                  {:value image :properties {:uri :string :source :string}}
-                'input                  {:value input :properties {:on-change :event :placeholder :string :keyboard-type :keyword :change-delay? :number :placeholder-text-color :any :selection-color :any}}
-                'button                 {:value button :properties {:enabled :boolean :disabled :boolean :on-click :event}}
-                'link                   {:value link :properties {:uri :string}}
-                'list                   {:value list :properties {:data :vector :item-view :view :key? :keyword}}
-                'checkbox               {:value checkbox :properties {:on-change :event :checked :boolean}}
-                'activity-indicator     {:value activity-indicator :properties {:animating :boolean :color :string :size :keyword :hides-when-stopped :boolean}}
-                'picker                 {:value picker :properties {:on-change :event :selected :string :enabled :boolean :data :vector}}
-                'nft-token-viewer       {:value transactions/nft-token :properties {:token :string}}
-                'transaction-status     {:value transactions/transaction-status :properties {:outgoing :string :tx-hash :string}}}
-   :queries    {'identity            {:value :extensions/identity :arguments {:value :map}}
-                'store/get           {:value :store/get :arguments {:key :string}}
-                'wallet/collectibles {:value :get-collectible-token :arguments {:token :string :symbol :string}}
-                'wallet/balance      {:value :extensions.wallet/balance :arguments {:token :string}}
-                'wallet/token        {:value :extensions.wallet/token :arguments {:token :string :amount? :number :amount-in-wei? :number}}
-                'wallet/tokens       {:value :extensions.wallet/tokens :arguments {:filter? :vector :visible? :boolean}}}
+  {:components {'view                   {:data view}
+                'scroll-view            {:data scroll-view :properties {:keyboard-should-persist-taps :keyword :content-container-style :map}}
+                'keyboard-avoiding-view {:data react/keyboard-avoiding-view}
+                'text                   {:data text}
+                'touchable-opacity      {:data touchable-opacity :properties {:on-press :event}}
+                'icon                   {:data icon :properties {:key :keyword :color :any}}
+                'image                  {:data image :properties {:uri :string :source :string}}
+                'input                  {:data input :properties {:on-change :event :placeholder :string :keyboard-type :keyword :change-delay? :number :placeholder-text-color :any :selection-color :any}}
+                'button                 {:data button :properties {:enabled :boolean :disabled :boolean :on-click :event}}
+                'link                   {:data link :properties {:uri :string}}
+                'list                   {:data list :properties {:data :vector :item-view :view :key? :keyword}}
+                'checkbox               {:data checkbox :properties {:on-change :event :checked :boolean}}
+                'activity-indicator     {:data activity-indicator :properties {:animating :boolean :color :string :size :keyword :hides-when-stopped :boolean}}
+                'picker                 {:data picker :properties {:on-change :event :selected :string :enabled :boolean :data :vector}}
+                'nft-token-viewer       {:data transactions/nft-token :properties {:token :string}}
+                'transaction-status     {:data transactions/transaction-status :properties {:outgoing :string :tx-hash :string}}}
+   :queries    {'identity            {:data :extensions/identity :arguments {:value :map}}
+                'store/get           {:data :store/get :arguments {:key :string}}
+                'wallet/collectibles {:data :get-collectible-token :arguments {:token :string :symbol :string}}
+                'wallet/balance      {:data :extensions.wallet/balance :arguments {:token :string}}
+                'wallet/token        {:data :extensions.wallet/token :arguments {:token :string :amount? :number :amount-in-wei? :number}}
+                'wallet/tokens       {:data :extensions.wallet/tokens :arguments {:filter? :vector :visible? :boolean}}}
    :events     {'identity
                 {:permissions [:read]
-                 :value       :extensions/identity-event
+                 :data        :extensions/identity-event
                  :arguments   {:cb :event}}
                 'alert
                 {:permissions [:read]
-                 :value       :alert
+                 :data        :alert
                  :arguments   {:value :string}}
                 'selection-screen
                 {:permissions [:read]
-                 :value       :extensions/show-selection-screen
+                 :data        :extensions/show-selection-screen
                  :arguments   {:items :vector :on-select :event :render :view :title :string :extractor-key :keyword}}
                 'chat.command/set-parameter
                 {:permissions [:read]
-                 :value       :extensions.chat.command/set-parameter
+                 :data        :extensions.chat.command/set-parameter
                  :arguments   {:value :any}}
                 'chat.command/set-custom-parameter
                 {:permissions [:read]
-                 :value       :extensions.chat.command/set-custom-parameter
+                 :data        :extensions.chat.command/set-custom-parameter
                  :arguments   {:key :keyword :value :any}}
                 'chat.command/set-parameter-with-custom-params
                 {:permissions [:read]
-                 :value       :extensions.chat.command/set-parameter-with-custom-params
+                 :data        :extensions.chat.command/set-parameter-with-custom-params
                  :arguments   {:value :string :params :map}}
                 'chat.command/send-plain-text-message
                 {:permissions [:read]
-                 :value       :extensions.chat.command/send-plain-text-message
+                 :data        :extensions.chat.command/send-plain-text-message
                  :arguments   {:value :string}}
                 'chat.command/send-message
                 {:permissions [:read]
-                 :value       :extensions.chat.command/send-message
+                 :data        :extensions.chat.command/send-message
                  :arguments   {:params :map}}
                 'log
                 {:permissions [:read]
-                 :value       :log
+                 :data        :log
                  :arguments   {:value :string}}
                 'arithmetic
                 {:permissions [:read]
-                 :value       :extensions/arithmetic
+                 :data        :extensions/arithmetic
                  :arguments   {:values    :vector
                                :operation {:one-of #{:plus :minus :times :divide}}
                                :on-result :event}}
                 'schedule/start
                 {:permissions [:read]
-                 :value       :extensions/schedule-start
+                 :data        :extensions/schedule-start
                  :arguments   {:interval   :number
                                :on-created :event
                                :on-result  :event}}
                 'schedule/cancel
                 {:permissions [:read]
-                 :value       :extensions/schedule-cancel
+                 :data        :extensions/schedule-cancel
                  :arguments   {:value      :number}}
                 'json/parse
                 {:permissions [:read]
-                 :value       :extensions/json-parse
+                 :data        :extensions/json-parse
                  :arguments   {:value     :string
                                :on-result :event}}
                 'json/stringify
                 {:permissions [:read]
-                 :value       :extensions/json-stringify
+                 :data        :extensions/json-stringify
                  :arguments   {:value     :string
                                :on-result :event}}
                 'store/put
                 {:permissions [:read]
-                 :value       :store/put
+                 :data        :store/put
                  :arguments   {:key :string :value :any}}
                 'store/puts
                 {:permissions [:read]
-                 :value       :store/puts
+                 :data        :store/puts
                  :arguments   {:value :vector}}
                 'store/append
                 {:permissions [:read]
-                 :value       :store/append
+                 :data        :store/append
                  :arguments   {:key :string :value :any}}
                 'store/clear
                 {:permissions [:read]
-                 :value       :store/clear
+                 :data        :store/clear
                  :arguments   {:key :string}}
                 'store/clear-all
                 {:permissions [:read]
-                 :value       :store/clear-all}
+                 :data        :store/clear-all}
                 'http/get
                 {:permissions [:read]
-                 :value       :http/get
+                 :data        :http/get
                  :arguments   {:url         :string
                                :timeout?    :string
                                :on-success  :event
                                :on-failure? :event}}
                 'http/post
                 {:permissions [:read]
-                 :value       :http/post
+                 :data        :http/post
                  :arguments   {:url         :string
                                :body        :string
                                :timeout?    :string
@@ -520,43 +522,43 @@
                                :on-failure? :event}}
                 'ipfs/cat
                 {:permissions [:read]
-                 :value       :ipfs/cat
+                 :data        :ipfs/cat
                  :arguments   {:hash        :string
                                :on-success  :event
                                :on-failure? :event}}
                 'ipfs/add
                 {:permissions [:read]
-                 :value       :ipfs/add
+                 :data        :ipfs/add
                  :arguments   {:value       :string
                                :on-success  :event
                                :on-failure? :event}}
                 'ethereum/transaction-receipt
                 {:permissions [:read]
-                 :value       :extensions/ethereum-transaction-receipt
+                 :data        :extensions/ethereum-transaction-receipt
                  :arguments   {:value       :string
                                :on-success  :event
                                :on-failure? :event}}
                 'ethereum/await-transaction-receipt
                 {:permissions [:read]
-                 :value       :extensions/ethereum-await-transaction-receipt
+                 :data        :extensions/ethereum-await-transaction-receipt
                  :arguments   {:value       :string
                                :interval    :number
                                :on-success  :event
                                :on-failure? :event}}
                 'ethereum/sign
                 {:permissions [:read]
-                 :value       :extensions/ethereum-sign
+                 :data        :extensions/ethereum-sign
                  :arguments   {:message?    :string
                                :data?       :string
                                :on-success  :event
                                :on-failure? :event}}
                 'ethereum/create-address
                 {:permissions [:read]
-                 :value       :extensions/ethereum-create-address
+                 :data        :extensions/ethereum-create-address
                  :arguments   {:on-result  :event}}
                 'ethereum/send-transaction
                 {:permissions [:read]
-                 :value       :extensions/ethereum-send-transaction
+                 :data        :extensions/ethereum-send-transaction
                  :arguments   {:to          :string
                                :gas?        :string
                                :gas-price?  :string
@@ -568,7 +570,7 @@
                                :on-failure? :event}}
                 'ethereum/logs
                 {:permissions [:read]
-                 :value       :extensions/ethereum-logs
+                 :data        :extensions/ethereum-logs
                  :arguments   {:from?       :string
                                :to?         :string
                                :address?    :vector
@@ -578,7 +580,7 @@
                                :on-failure? :event}}
                 'ethereum/create-filter
                 {:permissions [:read]
-                 :value       :extensions/ethereum-create-filter
+                 :data        :extensions/ethereum-create-filter
                  :arguments   {:type        {:one-of #{:filter :block :pending-transaction}}
                                :from?       :string
                                :to?         :string
@@ -589,34 +591,34 @@
                                :on-failure? :event}}
                 'ethereum/logs-changes
                 {:permissions [:read]
-                 :value       :extensions/ethereum-logs-changes
+                 :data        :extensions/ethereum-logs-changes
                  :arguments   {:id :string}}
                 'ethereum/cancel-filter
                 {:permissions [:read]
-                 :value       :extensions/ethereum-cancel-filter
+                 :data        :extensions/ethereum-cancel-filter
                  :arguments   {:id  :string}}
                 'ethereum.ens/resolve
                 {:permissions [:read]
-                 :value       :extensions/ethereum-resolve-ens
+                 :data        :extensions/ethereum-resolve-ens
                  :arguments   {:name        :string
                                :on-success  :event
                                :on-failure? :event}}
                 'ethereum.erc20/total-supply
                 {:permissions [:read]
-                 :value       :extensions/ethereum-erc20-total-supply
+                 :data        :extensions/ethereum-erc20-total-supply
                  :arguments   {:contract     :string
                                :on-success   :event
                                :on-failure?  :event}}
                 'ethereum.erc20/balance-of
                 {:permissions [:read]
-                 :value       :extensions/ethereum-erc20-balance-of
+                 :data        :extensions/ethereum-erc20-balance-of
                  :arguments   {:contract     :string
                                :token-owner  :string
                                :on-success   :event
                                :on-failure?  :event}}
                 'ethereum.erc20/transfer
                 {:permissions [:read]
-                 :value       :extensions/ethereum-erc20-transfer
+                 :data        :extensions/ethereum-erc20-transfer
                  :arguments   {:contract    :string
                                :to          :string
                                :value       :number
@@ -624,7 +626,7 @@
                                :on-failure? :event}}
                 'ethereum.erc20/transfer-from
                 {:permissions [:read]
-                 :value       :extensions/ethereum-erc20-transfer-from
+                 :data        :extensions/ethereum-erc20-transfer-from
                  :arguments   {:contract    :string
                                :from        :string
                                :to          :string
@@ -633,7 +635,7 @@
                                :on-failure? :event}}
                 'ethereum.erc20/approve
                 {:permissions [:read]
-                 :value       :extensions/ethereum-erc20-approve
+                 :data        :extensions/ethereum-erc20-approve
                  :arguments   {:contract    :string
                                :spender     :string
                                :value       :number
@@ -641,7 +643,7 @@
                                :on-failure? :event}}
                 'ethereum.erc20/allowance
                 {:permissions [:read]
-                 :value       :extensions/ethereum-erc20-allowance
+                 :data        :extensions/ethereum-erc20-allowance
                  :arguments   {:contract     :string
                                :token-owner  :string
                                :spender      :string
@@ -649,14 +651,14 @@
                                :on-failure? :event}}
                 'ethereum.erc721/owner-of
                 {:permissions [:read]
-                 :value       :extensions/ethereum-erc721-owner-of
+                 :data        :extensions/ethereum-erc721-owner-of
                  :arguments   {:contract    :string
                                :token-id    :string
                                :on-success  :event
                                :on-failure? :event}}
                 'ethereum.erc721/is-approved-for-all
                 {:permissions [:read]
-                 :value       :extensions/ethereum-erc721-is-approved-for-all
+                 :data        :extensions/ethereum-erc721-is-approved-for-all
                  :arguments   {:contract    :string
                                :owner       :string
                                :operator    :string
@@ -664,14 +666,14 @@
                                :on-failure? :event}}
                 'ethereum.erc721/get-approved
                 {:permissions [:read]
-                 :value       :extensions/ethereum-erc721-get-approved
+                 :data        :extensions/ethereum-erc721-get-approved
                  :arguments   {:contract    :string
                                :token-id    :string
                                :on-success  :event
                                :on-failure? :event}}
                 'ethereum.erc721/set-approval-for-all
                 {:permissions [:read]
-                 :value       :extensions/ethereum-erc721-set-approval-for-all
+                 :data        :extensions/ethereum-erc721-set-approval-for-all
                  :arguments   {:contract    :string
                                :operator    :string
                                :approved    :boolean
@@ -679,7 +681,7 @@
                                :on-failure? :event}}
                 'ethereum.erc721/safe-transfer-from
                 {:permissions [:read]
-                 :value       :extensions/ethereum-erc721-safe-transfer-from
+                 :data        :extensions/ethereum-erc721-safe-transfer-from
                  :arguments   {:contract    :string
                                :from        :string
                                :to          :string
@@ -689,24 +691,37 @@
                                :on-failure? :event}}
                 'ethereum/call
                 {:permissions [:read]
-                 :value       :extensions/ethereum-call
+                 :data        :extensions/ethereum-call
                  :arguments   {:to          :string
                                :method      :string
                                :params?     :vector
                                :outputs?    :vector
                                :on-success  :event
                                :on-failure? :event}}}
-   :hooks      {:chat.command    commands/command-hook
-                :wallet.settings settings/hook}})
+   :hooks      {:chat.command    hooks/command-hook
+                :wallet.settings hooks/wallet-settings}})
+
+(defn dispatch-events [events]
+  (doseq [event events]
+    (when (vector? event)
+      (re-frame/dispatch event))))
+
+(defn resolve-query [[id :as data]]
+  (when (registrar/get-handler :sub id)
+    (re-frame/subscribe data)))
 
 (defn parse [{:keys [data]} id]
   (try
-    (reader/parse {:capacities capacities :env {:id id}} data)
+    (pluto/parse {:capacities capacities
+                  :env        {:id id}
+                  :event-fn   dispatch-events
+                  :query-fn   resolve-query}
+                 data)
     (catch :default e {:errors [{:value (str e)}]})))
 
 (defn parse-extension [{:keys [type value]} id]
   (if (= type :success)
-    (parse (reader/read (:content value)) id)
+    (parse (pluto/read (:content value)) id)
     {:errors [{:type type :value value}]}))
 
 (def uri-prefix "https://get.status.im/extension/")

@@ -1,21 +1,28 @@
 (ns status-im.extensions.registry
   (:refer-clojure :exclude [list])
-  (:require [clojure.string :as string]
-            [pluto.reader.hooks :as hooks]
+  (:require [clojure.set :as set]
+            [clojure.string :as string]
             [re-frame.core :as re-frame]
             [status-im.accounts.update.core :as accounts.update]
             [status-im.i18n :as i18n]
             [status-im.utils.fx :as fx]
-            [clojure.set :as set]
             [status-im.ui.screens.navigation :as navigation]))
+
+(defprotocol Hook
+  "Encapsulate hook lifecycle."
+  (hook-in [this id env properties cofx] "Hook it into host app.")
+  (unhook [this id env properties cofx] "Remove extension hook from app."))
 
 (fx/defn update-hooks
   [{:keys [db] :as cofx} hook-fn extension-id]
   (let [account (get db :account/account)
         hooks   (get-in account [:extensions extension-id :hooks])]
+    (println "UPDATE" extension-id (get-in account [:extensions extension-id]))
     (apply fx/merge cofx
            (mapcat (fn [[_ extension-hooks]]
+                     (println "!!" extension-hooks)
                      (map (fn [[hook-id {parsed :parsed {hook :hook} :hook-ref}]]
+                            (println "UPDATE:" hook hook-fn)
                             (when hook
                               (partial hook-fn hook hook-id {:id extension-id} parsed)))
                           extension-hooks))
@@ -23,7 +30,7 @@
 
 (fx/defn disable-hooks
   [{:keys [db] :as cofx} extension-id]
-  (update-hooks cofx hooks/unhook extension-id))
+  (update-hooks cofx unhook extension-id))
 
 (fx/defn add-to-registry
   [{:keys [db] :as cofx} extension-id extension-data active?]
@@ -32,29 +39,31 @@
               :active? active?}]
     (fx/merge cofx
               {:db (update-in db [:account/account :extensions extension-id] merge data)}
-              (update-hooks hooks/hook-in extension-id))))
+              (update-hooks hook-in extension-id))))
 
 (fx/defn remove-from-registry
   [cofx extension-id]
   (let [extensions (get-in cofx [:db :account/account :extensions])]
     (fx/merge cofx
               (when (get-in extensions [extension-id :active?])
-                (update-hooks hooks/unhook extension-id))
+                (update-hooks unhook extension-id))
               {:db (update-in cofx [:db :account/account :extensions] dissoc extension-id)})))
 
 (fx/defn change-state
   [cofx extension-key active?]
+  (println "change-state")
   (let [extensions     (get-in cofx [:db :account/account :extensions])
         new-extensions (assoc-in extensions [extension-key :active?] active?)
         hook-fn        (if active?
-                         hooks/hook-in
-                         hooks/unhook)]
+                         hook-in
+                         unhook)]
     (fx/merge cofx
               (accounts.update/account-update {:extensions new-extensions} {:success-event nil})
               (update-hooks hook-fn extension-key))))
 
 (fx/defn install
   [{:keys [db] :as cofx} url {:keys [hooks] :as extension-data} modal?]
+  (println "INSTALL")
   (let [{:account/keys    [account]} db
         extension      {:id      url
                         :name    (get-in extension-data ['meta :name])
