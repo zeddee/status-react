@@ -144,7 +144,7 @@
     [react/text {:style styles/system-message-text}
      text]]])
 
-(views/defview message-with-name-and-avatar [text {:keys [from first-in-group? timestamp] :as message}]
+(defn message-wrapper [{:keys [from first-in-group? timestamp] :as message} item]
   [react/view
    (when first-in-group?
      [react/view {:style {:flex-direction :row :margin-top 24}}
@@ -155,7 +155,10 @@
        (time/timestamp->time timestamp)]])
    [react/view {:style styles/not-first-in-group-wrapper}
     [photo-placeholder]
-    [message-without-timestamp text message]]])
+    item]])
+
+(views/defview message-with-name-and-avatar [text message]
+  [message-wrapper message [message-without-timestamp text message]])
 
 (defmulti message (fn [_ _ {:keys [content-type]}] content-type))
 
@@ -169,6 +172,12 @@
     [photo-placeholder]
     [react/view {:style styles/message-command-container}
      [message/message-content-command message]]]])
+
+(defmethod message constants/content-type-sticker
+  [_ _ {:keys [content] :as message}]
+  [message-wrapper message
+   [react/image {:style {:margin 10 :width 140 :height 140}
+                 :source {:uri (:uri content)}}]])
 
 (views/defview message-content-status [text message]
   [react/view
