@@ -29,7 +29,8 @@
                                                               get-chat-menu-items]]
             [status-im.i18n :as i18n]
             [status-im.ui.screens.desktop.main.chat.events :as chat.events]
-            [status-im.ui.screens.chat.message.message :as chat.message]))
+            [status-im.ui.screens.chat.message.message :as chat.message]
+            [status-im.ui.screens.desktop.main.chat.emoji :as emoji]))
 
 (views/defview toolbar-chat-view [{:keys [chat-id color public-key public? group-chat]
                                    :as current-chat}]
@@ -296,7 +297,8 @@
 
 (views/defview chat-text-input [chat-id input-text]
   (views/letsubs [inp-ref (atom nil)
-                  disconnected? [:disconnected?]]
+                  disconnected? [:disconnected?]
+                  show-emoji? [:get-in [:desktop :show-emoji?]]]
     {:component-will-update
      (fn [e [_ new-chat-id new-input-text]]
        (let [[_ old-chat-id] (.. e -props -argv)]
@@ -313,9 +315,11 @@
                           :blur-on-submit         true
                           :style                  (styles/chat-text-input container-height)
                           :font                   :default
-                          :ref                    #(reset! inp-ref %)
+                          :ref                    #(do (reset! inp-ref %)
+                                                       (re-frame/dispatch [:set-in [:desktop :input-ref] %]))
                           :default-value          input-text
                           :on-content-size-change #(set-container-height-fn (.-height (.-contentSize (.-nativeEvent %))))
+                          :on-selection-change    #(re-frame/dispatch [:set-in [:desktop :input-selection] (.-start (.-selection (.-nativeEvent %)))])
                           :submit-shortcut        {:key "Enter"}
                           :on-submit-editing      #(when-not disconnected?
                                                      (.clear @inp-ref)
@@ -325,6 +329,9 @@
                                                     (let [native-event (.-nativeEvent e)
                                                           text         (.-text native-event)]
                                                       (re-frame/dispatch [:chat.ui/set-chat-input-text text])))}]
+       [react/touchable-highlight {:on-press #(re-frame/dispatch [:set-in [:desktop :show-emoji?] (not show-emoji?)])}
+        [icons/icon :main-icons/user-profile {:color colors/gray :height 40 :width 40
+                                              :container-style {:margin-right 14}}]]
        [send-button inp-ref disconnected?]])))
 
 (defn not-joined-group-chat? [chat current-public-key]
@@ -332,10 +339,24 @@
        (models.group-chats/invited? current-public-key chat)
        (not (models.group-chats/joined? current-public-key chat))))
 
+(defn emoji-view []
+  [react/scroll-view {:style {:flex 0.5}}
+   [react/view {:margin 10}
+    (for [{:keys [title emoji]} emoji/emoji]
+      ^{:key (str title)}
+      [react/view
+       [react/text {:style {:color colors/gray}} title]
+       [react/view {:style {:flex-direction :row :flex-wrap :wrap :margin-top 5 :margin-bottom 10}}
+        (for [[inx emoji-code] (map-indexed vector emoji)]
+          ^{:key (str "emoji" inx emoji-code)}
+          [react/touchable-highlight {:on-press #(re-frame/dispatch [:desktop/insert-emoji emoji-code])}
+           [react/view {:padding 2}
+            [react/text {:style {:font-size 20}} emoji-code]]])]])]])
+
 (views/defview chat-view []
   (views/letsubs [{:keys [input-text chat-id] :as current-chat} [:chats/current-chat]
-                  current-public-key [:account/public-key]]
-
+                  current-public-key [:account/public-key]
+                  show-emoji? [:get-in [:desktop :show-emoji?]]]
     [react/view {:style styles/chat-view}
      [toolbar-chat-view current-chat]
      [react/view {:style styles/separator}]
@@ -344,6 +365,8 @@
        [messages-view current-chat])
      [react/view {:style styles/separator}]
      [reply-message-view]
+     (when show-emoji?
+       [emoji-view show-emoji?])
      [chat-text-input chat-id input-text]]))
 
 (views/defview chat-profile []
