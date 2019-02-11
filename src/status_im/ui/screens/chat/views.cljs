@@ -103,7 +103,8 @@
      [react/touchable-without-feedback
       {:on-press (fn [_]
                    (re-frame/dispatch [:chat.ui/set-chat-ui-props {:messages-focused? true}])
-                   (react/dismiss-keyboard!))}
+                   (when-not platform/desktop?
+                     (react/dismiss-keyboard!)))}
       [react/animated-view {:style (style/message-view-animated opacity)}
        message-view]]]))
 

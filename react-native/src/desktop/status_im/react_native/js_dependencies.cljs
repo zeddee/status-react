@@ -1,5 +1,6 @@
 (ns status-im.react-native.js-dependencies)
 
+;implemented
 (def config                 (js/require "react-native-config"))
 (def fs                     (js/require "react-native-fs"))
 (def http-bridge            (js/require "react-native-http-bridge"))
@@ -12,10 +13,14 @@
 (def EventEmmiter           (js/require "react-native/Libraries/vendor/emitter/EventEmitter"))
 (def fetch                  (.-default (js/require "react-native-fetch-polyfill")))
 (def i18n                   (js/require "react-native-i18n"))
+
+;desktop-only
 (def desktop-linking        (.-DesktopLinking (.-NativeModules react-native)))
 (def desktop-menu           (js/require "react-native-desktop-menu"))
 (def desktop-config         (js/require "react-native-desktop-config"))
 (def desktop-shortcuts      (js/require "react-native-desktop-shortcuts"))
+
+;not implemented
 (def react-native-firebase  #js {})
 (def camera                 #js {:default #js {:constants {:Aspect "Portrait"}}})
 (def status-keycard         #js {:default #js {}})
@@ -30,4 +35,4 @@
 (def snoopy-bars            #js {})
 (def snoopy-buffer          #js {})
 (def background-timer       #js {:setTimeout (fn [cb ms] (js/setTimeout cb ms))})
-(def react-navigation       #js {:NavigationActions #js {}})
+(def react-navigation       (js/require "react-navigation"))

@@ -17,7 +17,8 @@
    :background-color (or background-color toolbar-background)
    :elevation        (if flat? 0 2)
    :android          {:height 55}
-   :ios              {:height 56}})
+   :ios              {:height 56}
+   :desktop          {:height 56}})
 
 (def toolbar-nav-actions-container
   {:flex-direction :row
@@ -38,6 +39,9 @@
    :font-size      17
    :font-weight    :bold
    :ios            {:text-align     :center
+                    :margin-left    15
+                    :margin-right   15}
+   :desktop        {:text-align     :center
                     :margin-left    15
                     :margin-right   15}
    :android        {:text-align     :left
@@ -69,6 +73,8 @@
 (defstyle item
   {:ios     {:padding-horizontal 12
              :padding-vertical   16}
+   :desktop {:padding-horizontal 12
+             :padding-vertical   16}
    :android {:padding 16}})
 
 (def item-text
@@ -78,6 +84,8 @@
 (defstyle item-text-action
   {:color   colors/blue
    :ios     {:font-size      15
+             :letter-spacing -0.2}
+   :desktop {:font-size      15
              :letter-spacing -0.2}
    :android {:font-size      14
              :letter-spacing 0.5}})

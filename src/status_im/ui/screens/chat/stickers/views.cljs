@@ -5,13 +5,15 @@
             [status-im.ui.components.icons.vector-icons :as vector-icons]
             [status-im.ui.components.colors :as colors]
             [status-im.i18n :as i18n]
+            [status-im.utils.platform :as platform]
             [status-im.ui.screens.chat.stickers.styles :as styles]))
 
 (defn button [show-stickers?]
   [react/touchable-highlight
    {:on-press (fn [_]
                 (re-frame/dispatch [:chat.ui/set-chat-ui-props {:show-stickers? (not show-stickers?)}])
-                (react/dismiss-keyboard!))}
+                (when-not platform/desktop?
+                  (react/dismiss-keyboard!)))}
    [vector-icons/icon :icons/stickers {:container-style {:margin 14 :margin-right 6}
                                        :color           (if show-stickers? colors/blue colors/gray)}]])
 
@@ -28,7 +30,8 @@
 (defn- on-sticker-click [sticker]
   (re-frame/dispatch [:chat.ui/set-chat-ui-props {:show-stickers? false}])
   (re-frame/dispatch [:chat/send-sticker sticker])
-  (react/dismiss-keyboard!))
+  (when-not platform/desktop?
+    (react/dismiss-keyboard!)))
 
 (defn- stickers-panel [stickers]
   [react/scroll-view {:style {:flex 1} :condtent-container-style {:flex 1}}

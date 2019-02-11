@@ -15,6 +15,7 @@
    :background-color colors/white
    :android          {:height 76}
    :ios              {:height 74}
+   :desktop          {:height 74}
    :overflow         :hidden})
 
 (defstyle chat-icon-container
@@ -24,7 +25,9 @@
    :padding-right  20
    :width          72
    :android        {:height 76}
-   :ios            {:height 74}})
+   :ios            {:height 74}
+   :desktop        {:height 74}
+   })
 
 (def browser-icon-container
   {:width            40
@@ -40,7 +43,8 @@
    :flex            1
    :flex-direction  :column
    :android         {:margin-top 16}
-   :ios             {:margin-top 14}})
+   :ios             {:margin-top 14}
+   :desktop         {:margin-top 14}})
 
 (defstyle chat-options-container
   {:padding-top 10})
@@ -56,7 +60,8 @@
    :justify-content :space-between
    :padding-right   16
    :android         {:margin-top 4}
-   :ios             {:margin-top 6}})
+   :ios             {:margin-top 6}
+   :desktop         {:margin-top 6}})
 
 (def message-status-container
   {:flex-direction :row
@@ -72,6 +77,8 @@
    :android {:font-size 16
              :height    26}
    :ios     {:font-size 17
+             :height    26}
+   :desktop {:font-size 17
              :height    26}})
 
 (defstyle private-group-icon-container
@@ -92,6 +99,8 @@
    :android {:font-size 14
              :height    24}
    :ios     {:font-size 15
+             :height    24}
+   :desktop {:font-size 15
              :height    24}})
 
 (def status-container
@@ -117,7 +126,8 @@
    :color      colors/blue
    :text-align :center
    :android    {:top 2}
-   :ios        {:top 3}})
+   :ios        {:top 3}
+   :desktop    {:top 3}})
 
 (def container
   {:flex 1})
@@ -133,7 +143,10 @@
   {:flex              1
    :align-items       :center
    :justify-content   :center
-   :margin-horizontal 34})
+   :margin-horizontal 34
+   :background-color  colors/green
+   :border-color colors/black
+   :border-width 1  })
 
 (def no-chats-text
   {:line-height    21
@@ -146,7 +159,8 @@
 (defstyle welcome-image-container
   {:align-items :center
    :android     {:margin-top 38}
-   :ios         {:margin-top 42}})
+   :ios         {:margin-top 42}
+   :desktop     {:margin-top 42}})
 
 (def welcome-image
   {:width  320
@@ -159,6 +173,7 @@
    :letter-spacing -0.3
    :android        {:margin-top 22}
    :ios            {:margin-top 96}
+   :desktop        {:margin-top 96}
    :text-align     :center
    :color          colors/black})
 
@@ -167,6 +182,7 @@
    :margin-top     8
    :android        {:margin-bottom 82}
    :ios            {:margin-bottom 32}
+   :desktop        {:margin-bottom 32}
    :text-align     :center
    :color          colors/gray})
 

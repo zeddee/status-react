@@ -36,12 +36,12 @@
          [toolbar/content-wrapper
           [components.common/logo styles/toolbar-logo]]))
      (cond
-       (and platform/ios?
+       (and (or platform/ios? platform/desktop?)
             logged-in?)
        [toolbar/actions
         [(-> (toolbar.actions/add true #(re-frame/dispatch [:navigate-to :new]))
              (assoc-in [:icon-opts :accessibility-label] :new-chat-button))]]
-       platform/ios?
+       (or platform/ios? platform/desktop?)
        [react/view {:style styles/spinner-container}
         [components/activity-indicator {:color colors/blue
                                         :animating true}]])]))
