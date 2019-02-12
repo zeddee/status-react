@@ -1,7 +1,7 @@
 cmn = load('ci/common.groovy')
 
 def plutil(name, value) {
-  sh "plutil -replace ${name} -string ${value} ios/StatusIm/Info.plist"
+  sh "plutil -replace '${name}' -string '${value}' ios/StatusIm/Info.plist"
 }
 
 def bundle(type) {
@@ -13,7 +13,7 @@ def bundle(type) {
     case 'release':     target = 'release'; break;
     case 'testflight':  target = 'release'; break;
     case 'e2e':         target = 'e2e';     break;
-    default:            target = 'nightly';
+    default:            target = 'pr';
   }
   /* configure build metadata */
   plutil('CFBundleShortVersionString', cmn.version())
