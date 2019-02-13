@@ -126,7 +126,7 @@
                                                  tab (case idx
                                                        0 :chat-stack
                                                        1 :wallet-stack
-                                                       2 :home-stack
+                                                       2 :profile-stack
                                                        :chat-stack)]
                                              [react/safe-area-view [tabs/tabs tab]])))})}]])
    {:initialRouteName :intro-login-stack}))
