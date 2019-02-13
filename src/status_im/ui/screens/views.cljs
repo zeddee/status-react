@@ -1,4 +1,3 @@
-
 (ns status-im.ui.screens.views
   (:require-macros [status-im.utils.views :refer [defview letsubs] :as views])
   (:require [re-frame.core :refer [dispatch]]
