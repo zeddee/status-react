@@ -31,6 +31,7 @@
             [status-im.network.core :as network]
             [status-im.notifications.core :as notifications]
             [status-im.pairing.core :as pairing]
+            [status-im.contact-code.core :as contact-code]
             [status-im.privacy-policy.core :as privacy-policy]
             [status-im.protocol.core :as protocol]
             [status-im.qr-scanner.core :as qr-scanner]
@@ -153,6 +154,17 @@
  :accounts.ui/mainnet-warning-shown
  (fn [cofx _]
    (accounts.update/account-update cofx {:mainnet-warning-shown? true} {})))
+
+(handlers/register-handler-fx
+ :accounts.update.callback/published
+ (fn [{:keys [now] :as cofx} _]
+   (accounts.update/account-update cofx {:last-updated now} {})))
+
+(handlers/register-handler-fx
+ :accounts.update.callback/failed-to-publish
+ (fn [{:keys [now] :as cofx} [_ message]]
+   (log/warn "failed to publish account update" message)
+   (accounts.update/account-update cofx {:last-updated now} {})))
 
 (handlers/register-handler-fx
  :accounts.ui/dev-mode-switched
@@ -390,6 +402,11 @@
  :mailserver/check-connection-timeout
  (fn [cofx _]
    (mailserver/check-connection cofx)))
+
+(handlers/register-handler-fx
+ :mailserver/fetch-history
+ (fn [cofx [_ chat-id from-timestamp]]
+   (mailserver/fetch-history cofx chat-id from-timestamp)))
 
 (handlers/register-handler-fx
  :mailserver.callback/generate-mailserver-symkey-success
@@ -646,7 +663,7 @@
 (handlers/register-handler-fx
  :chat.ui/fetch-history-pressed
  (fn [cofx [_ chat-id]]
-   (mailserver/fetch-history cofx chat-id)))
+   (mailserver/fetch-history cofx chat-id 1)))
 
 (handlers/register-handler-fx
  :chat.ui/remove-chat-pressed
@@ -781,11 +798,11 @@
 
 (handlers/register-handler-fx
  :chat/send-sticker
- (fn [{{:keys [current-chat-id] :account/keys [account]} :db :as cofx} [_ {:keys [uri]}]]
+ (fn [{{:keys [current-chat-id] :account/keys [account]} :db :as cofx} [_ {:keys [uri] :as sticker}]]
    (fx/merge
     cofx
     (accounts/update-recent-stickers (conj (remove #(= uri %) (:recent-stickers account)) uri))
-    (chat.input/send-sticker-fx uri current-chat-id))))
+    (chat.input/send-sticker-fx sticker current-chat-id))))
 
 (handlers/register-handler-fx
  :chat/disable-cooldown
@@ -1584,6 +1601,16 @@
    {:db (assoc (:db cofx) :initial-props initial-props)}))
 
 (handlers/register-handler-fx
+ :contact-code.callback/contact-code-published
+ (fn [cofx arg]
+   (contact-code/published cofx)))
+
+(handlers/register-handler-fx
+ :contact-code.callback/contact-code-publishing-failed
+ (fn [cofx _]
+   (contact-code/publishing-failed cofx)))
+
+(handlers/register-handler-fx
  :pairing.ui/enable-installation-pressed
  (fn [cofx [_ installation-id]]
    (pairing/enable-fx cofx installation-id)))
@@ -1634,9 +1661,8 @@
 
 (handlers/register-handler-fx
  :stickers/load-sticker-pack-success
- (fn [{:keys [db]} [_ edn-string]]
-   (let [{{:keys [id] :as pack} 'meta} (edn/read-string edn-string)]
-     {:db (-> db (assoc-in [:stickers/packs id] (assoc pack :edn edn-string)))})))
+ (fn [cofx [_ edn-string uri open?]]
+   (stickers/load-sticker-pack-success cofx edn-string uri open?)))
 
 (handlers/register-handler-fx
  :stickers/install-pack
@@ -1649,7 +1675,7 @@
    {;;TODO request list of packs from contract
     :http-get-n (mapv (fn [uri] {:url                   uri
                                  :success-event-creator (fn [o]
-                                                          [:stickers/load-sticker-pack-success o])
+                                                          [:stickers/load-sticker-pack-success o uri])
                                  :failure-event-creator (fn [o] nil)})
                       ;;TODO for testing ONLY
                       ["https://ipfs.infura.io/ipfs/QmRKmQjXyqpfznQ9Y9dTnKePJnQxoJATivPbGcCAKRsZJq/"])}))
@@ -1658,3 +1684,8 @@
  :stickers/select-pack
  (fn [{:keys [db]} [_ id]]
    {:db (assoc db :stickers/selected-pack id)}))
+
+(handlers/register-handler-fx
+ :stickers/open-sticker-pack
+ (fn [cofx [_ uri]]
+   (stickers/open-sticker-pack cofx uri)))

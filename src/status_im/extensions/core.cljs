@@ -125,6 +125,18 @@
  (fn [db [_ {id :id} {:keys [key]}]]
    (get-in db [:extensions/store id key])))
 
+(defn- ->contact [{:keys [photo-path address name public-key]}]
+  {:photo      photo-path
+   :name       name
+   :address    (str "0x" address)
+   :public-key public-key})
+
+(re-frame/reg-sub
+ :extensions.contacts/all
+ :<- [:contacts/active]
+ (fn [[contacts] _]
+   (map #(update % :address ->contact))))
+
 (defn- empty-value? [o]
   (cond
     (seqable? o) (empty? o)
@@ -419,6 +431,7 @@
                 'transaction-status     {:value transactions/transaction-status :properties {:outgoing :string :tx-hash :string}}}
    :queries    {'identity            {:value :extensions/identity :arguments {:value :map}}
                 'store/get           {:value :store/get :arguments {:key :string}}
+                'contacts/all        {:value :extensions.contacts/all} ;; :photo :name :address :public-key
                 'wallet/collectibles {:value :get-collectible-token :arguments {:token :string :symbol :string}}
                 'wallet/balance      {:value :extensions.wallet/balance :arguments {:token :string}}
                 'wallet/token        {:value :extensions.wallet/token :arguments {:token :string :amount? :number :amount-in-wei? :number}}
@@ -575,7 +588,7 @@
                                :method?     :string
                                :params?     :vector
                                :nonce?      :string
-                               :on-success  :event
+                               :on-success? :event
                                :on-failure? :event}}
                 'ethereum/logs
                 {:permissions [:read]
@@ -706,7 +719,59 @@
                                :params?     :vector
                                :outputs?    :vector
                                :on-success  :event
-                               :on-failure? :event}}}
+                               :on-failure? :event}}
+                'ethereum/shh_post
+                {:permissions [:read]
+                 :value       :extensions/shh-post
+                 :arguments   {:from?       :string
+                               :to?         :string
+                               :topics      :vector
+                               :payload     :string
+                               :priority    :string
+                               :ttl         :string
+                               :on-success  :event
+                               :on-failure? :event}}
+                'ethereum/shh-new-identity
+                {:permissions [:read]
+                 :value       :extensions/shh-new-identity
+                 :arguments   {:on-success  :event
+                               :on-failure? :event}}
+                'ethereum/shh-has-identity
+                {:permissions [:read]
+                 :value       :extensions/shh-has-identity
+                 :arguments   {:address     :string
+                               :on-success  :event
+                               :on-failure? :event}}
+                'ethereum/shh-new-group
+                {:permissions [:read]
+                 :value       :extensions/shh-new-group
+                 :arguments   {:on-success  :event
+                               :on-failure? :event}}
+                'ethereum/shh-add-to-group
+                {:permissions [:read]
+                 :value       :extensions/shh-add-to-group
+                 :arguments   {:address     :string
+                               :on-success  :event
+                               :on-failure? :event}}
+                'ethereum/shh_new-filter
+                {:permissions [:read]
+                 :value       :extensions/shh-new-filter
+                 :arguments   {:to?         :string
+                               :topics      :vector
+                               :on-success  :event
+                               :on-failure? :event}}
+                'ethereum/shh-uninstall-filter
+                {:permissions [:read]
+                 :value       :extensions/shh-uninstall-filter
+                 :arguments   {:id  :string}}
+                'ethereum/shh-get-filter-changes
+                {:permissions [:read]
+                 :value       :extensions/shh-get-filter-changes
+                 :arguments   {:id :string}}
+                'ethereum/shh-get-messages
+                {:permissions [:read]
+                 :value       :extensions/shh-get-messages
+                 :arguments   {:id :string}}}
    :hooks      {:chat.command    commands/command-hook
                 :wallet.settings settings/hook}})
 
