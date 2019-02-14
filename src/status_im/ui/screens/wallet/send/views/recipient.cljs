@@ -160,8 +160,8 @@
                                    :underlay-color   colors/black-transparent
                                    :background-color (if disabled? colors/blue colors/white)
                                    :on-press         #(events/chosen-recipient web3 chain (:to @transaction) on-address
-                                                                               (fn on-error [_]
-                                                                                 (reset! error-message (i18n/label :t/invalid-address))))}
+                                                                               (fn on-error [code]
+                                                                                 (reset! error-message (i18n/label code))))}
              [react/text {:style {:color       (if disabled?
                                                  (colors/alpha colors/white 0.3)
                                                  colors/blue)

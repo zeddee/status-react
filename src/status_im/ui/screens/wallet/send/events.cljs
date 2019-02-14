@@ -14,6 +14,7 @@
             [status-im.ui.screens.wallet.db :as wallet.db]
             [status-im.utils.ethereum.ens :as ens]
             [status-im.utils.ethereum.eip681 :as eip681]
+            [status-im.utils.ethereum.eip55 :as eip55]
             [status-im.utils.ethereum.core :as ethereum]
             [status-im.utils.ethereum.erc20 :as erc20]
             [status-im.utils.ethereum.tokens :as tokens]
@@ -123,15 +124,18 @@
     (ens/get-addr web3
                   (get ens/ens-registries chain)
                   recipient
-                  callback)
-    (callback recipient)))
+                  #(callback % true))
+    (callback recipient false)))
 
 (defn chosen-recipient [web3 chain recipient success-callback error-callback]
   {:pre [(keyword? chain) (string? recipient)]}
   (eth-name->address web3 chain recipient
-                     #(if (ethereum/address? %)
-                        (success-callback %)
-                        (error-callback %))))
+                     (fn [to ens?]
+                       (if (ethereum/address? to)
+                         (if (and (not ens?) (not (eip55/valid-address-checksum? recipient)))
+                           (error-callback :t/wallet-invalid-address-checksum)
+                           (success-callback to))
+                         (error-callback :t/invalid-address)))))
 
 (handlers/register-handler-fx
  :wallet/transaction-to-success

@@ -260,19 +260,20 @@
                                      :line-height 22
                                      :color       colors/blue-shadow}}
                  converted-phrase]]
-               [react/view {:justify-content :center
-                            :flex-direction  :row}
-                [react/touchable-highlight {:on-press open-network-fees!
-                                            :style    {:background-color   colors/black-transparent
-                                                       :padding-horizontal 13
-                                                       :padding-vertical   7
-                                                       :margin-top         1
-                                                       :border-radius      8}}
-                 [react/text {:style {:color       colors/white
-                                      :font-size   15
-                                      :line-height 22}}
-                  (i18n/label :t/network-fee-amount {:amount   (str (or (gas-gas-price->fiat (common/current-gas @tx-atom)) "0"))
-                                                     :currency (:code fiat-currency)})]]]
+               (when (valid-input-amount? input-amount)
+                 [react/view {:justify-content :center
+                              :flex-direction  :row}
+                  [react/touchable-highlight {:on-press open-network-fees!
+                                              :style    {:background-color   colors/black-transparent
+                                                         :padding-horizontal 13
+                                                         :padding-vertical   7
+                                                         :margin-top         1
+                                                         :border-radius      8}}
+                   [react/text {:style {:color       colors/white
+                                        :font-size   15
+                                        :line-height 22}}
+                    (i18n/label :t/network-fee-amount {:amount   (str (or (gas-gas-price->fiat (common/current-gas @tx-atom)) "0"))
+                                                       :currency (:code fiat-currency)})]]])
                [react/view {:flex 1}]
 
                [react/view {:flex-direction :row
